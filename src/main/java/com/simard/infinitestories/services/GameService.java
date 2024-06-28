@@ -4,8 +4,8 @@ import com.simard.infinitestories.entities.*;
 import com.simard.infinitestories.entities.Character;
 import com.simard.infinitestories.enums.ActionResultsEnum;
 import com.simard.infinitestories.enums.CharacterTypeEnum;
-import com.simard.infinitestories.enums.MemoryTypeEnum;
 import com.simard.infinitestories.exceptions.RequestException;
+import com.simard.infinitestories.mappers.MemoryMapper;
 import com.simard.infinitestories.models.dto.ColorDto;
 import com.simard.infinitestories.models.dto.GameCreationDto;
 import com.simard.infinitestories.models.dto.GameCreationResponseDto;
@@ -40,17 +40,20 @@ public class GameService {
     private final UserService userService;
     private final PlayerService playerService;
     private final CharacterService characterService;
-    
-    @Autowired
 
+    // Mappers
+    private final MemoryMapper memoryMapper;
+
+    @Autowired
     public GameService(
             GameRepository gameRepository,
-            GptService gptService, 
+            GptService gptService,
             MemoryService memoryService,
             WorldService worldService,
             UserService userService,
             PlayerService playerService,
-            CharacterService characterService)
+            CharacterService characterService,
+            MemoryMapper memoryMapper)
     {
         this.gameRepository = gameRepository;
 
@@ -60,6 +63,12 @@ public class GameService {
         this.userService = userService;
         this.playerService = playerService;
         this.characterService = characterService;
+
+        this.memoryMapper = memoryMapper;
+    }
+
+    public List<Game> findAllByWorldId(Long worldId) {
+        return this.gameRepository.findAllByWorldId(worldId);
     }
 
     public Game createGame (GameCreationDto gameCreationDto) {
@@ -77,6 +86,10 @@ public class GameService {
         colors = this.gptService.getColorsFromCompletion(completion);
 
         return colors;
+    }
+
+    public Game createAndSaveNewGame(World world, String model, Player player) {
+        return this.gameRepository.save(new Game(world, model, player));
     }
 
     public ActionResultsEnum actionRoll (int characterSkillLevel, int rollOffset) {
@@ -122,14 +135,16 @@ public class GameService {
 
         Player player = this.playerService.createAndSaveNewPlayer(user);
 
-        Game newGame = this.gameRepository.save(new Game(world, gameCreationDto.model(), player));
+        Game newGame = this.createAndSaveNewGame(world, gameCreationDto.model(), player);
 
-        this.characterService.createAndSaveNewCharacter(
+        Character character = this.characterService.createAndSaveNewCharacter(
                 newGame,
                 gameCreationDto.playerCharacterName(),
                 gameCreationDto.playerCharacterDescription(),
                 CharacterTypeEnum.PLAYER
         );
+
+        newGame.setCharacter(character);
 
         return ResponseEntity.ok(new GameCreationResponseDto(this.getColorPaletteForWorld(), newGame.getId()));
     }
@@ -145,11 +160,16 @@ public class GameService {
         
         return this.nextPage(game, this.gptService.getStartMessages(game.getWorld().getDescription(), playerCharacterDescription));
     }
-    
+
+    public ResponseEntity<GamePageDto> nextPage(@NotNull Long gameId, String playerMessage) {
+        Game game = this.gameRepository.findById(gameId).orElseThrow();
+        List<ChatMessage> messages = this.memoryMapper.mapMemoryListToChatMessageList(this.memoryService.getMemoriesByGameId(gameId));
+        messages.add(new ChatMessage(ChatMessageRole.USER.value(), playerMessage));
+        return nextPage(game, messages);
+    }
+
+
     public ResponseEntity<GamePageDto> nextPage(@NotNull Game game, List<ChatMessage> messages) {
-        
-        messages.add(this.memoryService.getMemoriesByGameId(game.getId()));
-        
         Player player = playerService.getPlayerByGameId(game.getId());
 
         if(player == null) {
@@ -164,6 +184,7 @@ public class GameService {
             completion = completionSections[0];
             String memorySection = completionSections[1];
 
+            System.out.println("saving memory: " + memorySection);
             this.memoryService.createAndSaveNewMemory(game, memorySection);
         }
 

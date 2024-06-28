@@ -20,19 +20,9 @@ public class MemoryService {
     public MemoryService(MemoryRepository memoryRepository) {
         this.memoryRepository = memoryRepository;
     }
-    public ChatMessage getMemoriesByGameId(Long gameId) {
-        List<Memory> memories = this.memoryRepository.findAllByGameId(gameId).orElse(null);
-
-        StringBuilder memoriesStringBuilder = new StringBuilder();
-
-        assert memories != null;
-        for (Memory memory : memories) {
-            memoriesStringBuilder.append(memory.getDescription());
-        }
-
-        return new ChatMessage(ChatMessageRole.ASSISTANT.value(), memoriesStringBuilder.toString());
+    public List<Memory> getMemoriesByGameId(Long gameId) {
+        return this.memoryRepository.findAllByGameId(gameId).orElse(null);
     }
-
     public Memory createAndSaveNewMemory(Game game, String description) {
         return this.memoryRepository.save(new Memory(game, description));
     }

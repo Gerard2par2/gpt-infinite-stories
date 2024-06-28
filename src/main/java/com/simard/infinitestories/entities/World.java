@@ -1,8 +1,12 @@
 package com.simard.infinitestories.entities;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 
 @Entity
+@Getter
+@Setter
 public class World {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE)
@@ -26,37 +30,5 @@ public class World {
 
     protected World() {
 
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    public String getEra() {
-        return era;
-    }
-
-    public void setEra(String era) {
-        this.era = era;
     }
 }

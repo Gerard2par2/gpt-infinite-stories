@@ -9,7 +9,6 @@ import lombok.Setter;
 @Getter
 @Setter
 public class Memory {
-
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE)
     @Column(name = "id", nullable = false)
@@ -19,7 +18,7 @@ public class Memory {
     @JoinColumn(name = "game_id")
     private Game game;
 
-    @Column(name = "description")
+    @Column(name = "description", length = 1000)
     private String description;
 
     @Column(name = "type")

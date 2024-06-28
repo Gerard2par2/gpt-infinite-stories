@@ -1,13 +1,20 @@
 package com.simard.infinitestories.entities;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 
 @Entity
+@Getter
+@Setter
 public class Game {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE)
     @Column(name = "id", nullable = false)
     private Long id;
+
+    @Column(name= "`name`", length = 50, nullable = false)
+    private String name;
 
     @ManyToOne
     @JoinColumn(name = "world_id", nullable = false)
@@ -20,6 +27,9 @@ public class Game {
     @JoinColumn(name = "player_id", nullable = false)
     private Player player;
 
+    @OneToOne
+    private Character character;
+
     public Game(World world, String model, Player player) {
         this.world = world;
         this.gptModel = model;
@@ -29,29 +39,4 @@ public class Game {
     public Game() {
 
     }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public World getWorld() {
-        return world;
-    }
-
-    public void setWorld(World world) {
-        this.world = world;
-    }
-
-    public String getGptModel() {
-        return gptModel;
-    }
-
-    public void setGptModel(String gptModel) {
-        this.gptModel = gptModel;
-    }
-
 }

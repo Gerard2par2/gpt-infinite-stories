@@ -2,8 +2,12 @@ package com.simard.infinitestories.entities;
 
 import com.simard.infinitestories.enums.CharacterTypeEnum;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 
 @Entity
+@Getter
+@Setter
 @Table(name = "character_entity")
 public class Character {
     @Id
@@ -34,45 +38,5 @@ public class Character {
 
     public Character() {
         super();
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public Game getGame() {
-        return game;
-    }
-
-    public void setGame(Game game) {
-        this.game = game;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public String getCharacterType() {
-        return characterType;
-    }
-
-    public void setCharacterType(String characterType) {
-        this.characterType = characterType;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
     }
 }
