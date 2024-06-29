@@ -2,14 +2,14 @@ package com.simard.infinitestories.entities;
 
 import com.simard.infinitestories.enums.CharacterTypeEnum;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 
 @Getter
 @Setter
-@AllArgsConstructor
 @Entity
+@Getter
+@Setter
 @Table(name = "character_entity")
 public class Character {
     @Id

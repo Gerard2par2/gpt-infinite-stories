@@ -32,8 +32,8 @@ public class Prompts {
                 Formulate your completion like this :
                 BACKGROUND:red,green,blue;
                 TEXT:red,green,blue;
-                WEAK_ACCENT:red,green,blue;
-                STRONG_ACCENT:red,green,blue;
+                WEAK-ACCENT:red,green,blue;
+                STRONG-ACCENT:red,green,blue;
                 Your answer will have to match the this regex : "\\d{1,3},\\d{1,3},\\d{1,3}".
                 """;
 

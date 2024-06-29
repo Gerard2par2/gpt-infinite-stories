@@ -1,8 +1,9 @@
 package com.simard.infinitestories.rest;
 
-import com.simard.infinitestories.exceptions.UnkownUserException;
+import com.simard.infinitestories.mappers.GameMapper;
 import com.simard.infinitestories.models.dto.GameCreationDto;
 import com.simard.infinitestories.models.dto.GameCreationResponseDto;
+import com.simard.infinitestories.models.dto.GameDto;
 import com.simard.infinitestories.models.dto.GamePageDto;
 import com.simard.infinitestories.models.dto.NextPageRequestDto;
 import com.simard.infinitestories.services.GameService;
@@ -14,14 +15,40 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
+@CrossOrigin
 @RequestMapping("/game")
 public class GameController {
     private final GameService gameService;
+    private final GameMapper gameMapper;
 
     @Autowired
-    public GameController(GameService gameService) {
+    public GameController(
+            GameService gameService,
+            GameMapper gameMapper) {
         this.gameService = gameService;
+        this.gameMapper = gameMapper;
+    }
+
+    /**
+     * Returns the map of the world
+     * @return an HTTP response containing the map of the world
+     */
+    @GetMapping("/map")
+    public ResponseEntity<String> getGameWorldMap() {
+        return ResponseEntity.ok("Hello World");
+    }
+
+    /**
+     * Returns all the games of a world
+     * @param worldId the id of the world
+     * @return an HTTP response containing all the games of the world
+     */
+    @GetMapping("/world/{worldId}")
+    public ResponseEntity<List<GameDto>> getAllGamesByWorldId(@PathVariable Long worldId) {
+        return ResponseEntity.ok(this.gameMapper.fromGameToGameDtoList(this.gameService.findAllByWorldId(worldId)));
     }
 
     /**

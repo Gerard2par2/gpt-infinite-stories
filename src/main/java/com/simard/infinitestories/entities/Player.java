@@ -1,8 +1,12 @@
 package com.simard.infinitestories.entities;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 
 @Entity
+@Getter
+@Setter
 public class Player {
 
     public Player() {}
@@ -18,21 +22,4 @@ public class Player {
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
-
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public User getUser() {
-        return user;
-    }
-
-    public void setUser(User user) {
-        this.user = user;
-    }
 }
