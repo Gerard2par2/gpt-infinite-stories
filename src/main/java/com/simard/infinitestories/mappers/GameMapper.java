@@ -12,8 +12,8 @@ public class GameMapper {
     public GameDto fromGameToGameDto(Game game) {
         return new GameDto(
                 game.getId(),
-                game.getCharacter().getDescription(),
-                game.getCharacter().getName(),
+                game.getPlayerCharacter().getDescription(),
+                game.getPlayerCharacter().getName(),
                 game.getGptModel(),
                 game.getWorld().getId()
         );

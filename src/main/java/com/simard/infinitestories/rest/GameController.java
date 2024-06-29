@@ -78,6 +78,6 @@ public class GameController {
      */
     @PostMapping("/{gameId}/next")
     public ResponseEntity<GamePageDto> nextPage(@PathVariable Long gameId, @RequestBody @NotNull @Validated final NextPageRequestDto nextPageRequestDto) {
-        return this.gameService.nextPage(gameId, nextPageRequestDto);
+        return this.gameService.nextPage(gameId, nextPageRequestDto.message());
     }
 }

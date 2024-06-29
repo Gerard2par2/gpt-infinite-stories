@@ -180,7 +180,7 @@ public class GameService {
 
     public ResponseEntity<GamePageDto> nextPage(@NotNull Game game, List<ChatMessage> messages) {
 
-        messages.add(this.memoryService.getMemoriesByGameId(game.getId()));
+        messages.addAll(this.memoryService.getMemoriesByGameId(game.getId()).stream().map(memory -> new ChatMessage(ChatMessageRole.ASSISTANT.value(), memory.getDescription())).toList());
         
         Player player = playerService.getPlayerByGameId(game.getId());
 
