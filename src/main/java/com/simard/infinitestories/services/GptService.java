@@ -59,12 +59,6 @@ public class GptService {
             colorString = colorString.replace(title, "").replace(":", "").replace(" ", "");
             String[] splittedColorString = colorString.split(",");
 
-            boolean colorCompletionIsValid = splittedColorString.length == 3 && Pattern.matches(regex, colorString) && expectedTitles.contains(title);
-
-            if (!colorCompletionIsValid) {
-                throw new InvalidCompletionException("Color completion is not valid", completion);
-            }
-
             int redValue = Integer.parseInt(splittedColorString[0]);
             int greenValue = Integer.parseInt(splittedColorString[1]);
             int blueValue = Integer.parseInt(splittedColorString[2]);

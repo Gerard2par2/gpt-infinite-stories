@@ -9,5 +9,4 @@ class InfiniteStoriesApplicationTests {
 	@Test
 	void contextLoads() {
 	}
-
 }

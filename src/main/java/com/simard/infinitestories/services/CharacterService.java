@@ -17,11 +17,7 @@ public class CharacterService {
     public CharacterService(CharacterRepository characterRepository) {
         this.characterRepository = characterRepository;
     }
-    public Character createAndSaveNewCharacter(Game game, String name, String description, CharacterTypeEnum characterType) {
-        return this.characterRepository.save(new Character(game, name, description, characterType));
-    }
-
-    public Character findPlayerByGameId(Long gameId) {
-        return this.characterRepository.findPlayerCharacterByGameId(gameId);
+    public Character createAndSaveNewCharacter(String name, String description, CharacterTypeEnum characterType) {
+        return this.characterRepository.save(new Character(name, description, characterType));
     }
 }

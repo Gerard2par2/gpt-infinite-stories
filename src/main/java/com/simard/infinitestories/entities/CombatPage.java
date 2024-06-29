@@ -7,7 +7,7 @@ import java.util.*;
 
 @Getter
 @Setter
-public class CombatPage extends Page {
+public class CombatPage extends Page { // TODO: DELETE ???
     private List<Character> enemies;
 
     public CombatPage(World world, String text) {

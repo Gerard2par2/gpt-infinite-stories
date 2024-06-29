@@ -6,10 +6,7 @@ import com.simard.infinitestories.enums.ActionResultsEnum;
 import com.simard.infinitestories.enums.CharacterTypeEnum;
 import com.simard.infinitestories.enums.MemoryTypeEnum;
 import com.simard.infinitestories.exceptions.RequestException;
-import com.simard.infinitestories.models.dto.ColorDto;
-import com.simard.infinitestories.models.dto.GameCreationDto;
-import com.simard.infinitestories.models.dto.GameCreationResponseDto;
-import com.simard.infinitestories.models.dto.GamePageDto;
+import com.simard.infinitestories.models.dto.*;
 import com.simard.infinitestories.repositories.*;
 import com.simard.infinitestories.utils.Prompts;
 import com.theokanning.openai.completion.chat.ChatMessage;
@@ -122,14 +119,17 @@ public class GameService {
 
         Player player = this.playerService.createAndSaveNewPlayer(user);
 
-        Game newGame = this.gameRepository.save(new Game(world, gameCreationDto.model(), player));
+        Game newGame = new Game(world, gameCreationDto.model(), player);
 
-        this.characterService.createAndSaveNewCharacter(
-                newGame,
+        Character playerCharacter = this.characterService.createAndSaveNewCharacter(
                 gameCreationDto.playerCharacterName(),
                 gameCreationDto.playerCharacterDescription(),
                 CharacterTypeEnum.PLAYER
         );
+
+        newGame.setPlayerCharacter(playerCharacter);
+
+        newGame = this.gameRepository.save(newGame);
 
         return ResponseEntity.ok(new GameCreationResponseDto(this.getColorPaletteForWorld(), newGame.getId()));
     }
@@ -141,13 +141,20 @@ public class GameService {
             throw new RequestException("Game not found", HttpStatus.NOT_FOUND);
         }
 
-        String playerCharacterDescription = this.characterService.findPlayerByGameId(gameId).getDescription();
-        
-        return this.nextPage(game, this.gptService.getStartMessages(game.getWorld().getDescription(), playerCharacterDescription));
+        return this.nextPage(game, this.gptService.getStartMessages(game.getWorld().getDescription(), game.getPlayerCharacter().getDescription()));
+    }
+
+    public ResponseEntity<GamePageDto> nextPage(@NotNull Long gameId, NextPageRequestDto nextPageRequestDto) {
+        Game game = this.gameRepository.findById(gameId).orElseThrow(() -> new RequestException("Game not found", HttpStatus.NOT_FOUND));
+
+        List<ChatMessage> messages = this.gptService.getStartMessages(game.getWorld().getDescription(), null);
+        messages.add(new ChatMessage(ChatMessageRole.USER.value(), nextPageRequestDto.message()));
+
+        return this.nextPage(game, messages);
     }
     
     public ResponseEntity<GamePageDto> nextPage(@NotNull Game game, List<ChatMessage> messages) {
-        
+
         messages.add(this.memoryService.getMemoriesByGameId(game.getId()));
         
         Player player = playerService.getPlayerByGameId(game.getId());

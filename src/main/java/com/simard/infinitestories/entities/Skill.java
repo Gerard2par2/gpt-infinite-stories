@@ -14,6 +14,6 @@ public class Skill {
     private Long id;
 
     @Column(name="skill_code", nullable = false)
-    private String code;
+    private String code; // TODO: ENUM TDC VA
 
 }

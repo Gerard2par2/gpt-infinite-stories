@@ -1,8 +1,11 @@
 package com.simard.infinitestories.entities;
 
 import jakarta.persistence.*;
+import lombok.NoArgsConstructor;
+import org.jetbrains.annotations.NotNull;
 
 @Entity
+@NoArgsConstructor
 public class World {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE)
@@ -22,10 +25,6 @@ public class World {
         this.name = name;
         this.description = description;
         this.era = era;
-    }
-
-    protected World() {
-
     }
 
     public Long getId() {

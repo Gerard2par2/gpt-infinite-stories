@@ -13,7 +13,7 @@ public class CharacterSkillValue {
     @Column(name = "id", nullable = false)
     private Long id;
 
-    @ManyToOne
+    @OneToOne
     @JoinColumn(name = "skill_id", nullable = false)
     private Skill skill;
 
