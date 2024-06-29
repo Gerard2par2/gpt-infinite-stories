@@ -30,31 +30,31 @@ public class WorldController {
 
     @GetMapping("")
     public ResponseEntity<List<World>> getAllWorlds() {
-        this.logger.debug("GET /world");
+        this.logger.info("GET /world");
         return ResponseEntity.ok(this.worldService.findAll());
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<World> getWorldById(@PathVariable("id") Long id) {
-        this.logger.debug("GET /world/{}", id);
+        this.logger.info("GET /world/{}", id);
         return ResponseEntity.ok(this.worldService.findById(id));
     }
     
     @PostMapping("/new")
     public ResponseEntity<World> createNewWorld(@RequestBody @Validated final WorldCreationDto worldCreationDto) {
-        this.logger.debug("POST /world/new");
+        this.logger.info("POST /world/new");
         return ResponseEntity.ok(this.worldService.createAndSaveNewWorld(worldCreationDto.name(), worldCreationDto.description(), worldCreationDto.era()));
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<World> updateWorld(@PathVariable("id") Long id, @RequestBody @Validated final WorldDto worldDto) {
-        this.logger.debug("PUT /world/{}", id);
+        this.logger.info("PUT /world/{}", id);
         return ResponseEntity.ok(this.worldService.updateWorld(worldDto, id));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteWorld(@PathVariable("id") Long id) {
-        this.logger.debug("DELETE /world/{}", id);
+        this.logger.info("DELETE /world/{}", id);
         this.worldService.deleteById(id);
         return ResponseEntity.ok().build();
     }

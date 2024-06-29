@@ -2,13 +2,16 @@ package com.simard.infinitestories.services;
 
 import com.simard.infinitestories.exceptions.InvalidCompletionException;
 import com.simard.infinitestories.models.dto.ColorDto;
+import com.simard.infinitestories.rest.WorldController;
 import com.simard.infinitestories.utils.Prompts;
 import com.theokanning.openai.completion.chat.ChatCompletionRequest;
+import com.theokanning.openai.completion.chat.ChatCompletionResult;
 import com.theokanning.openai.completion.chat.ChatMessage;
 import com.theokanning.openai.completion.chat.ChatMessageRole;
 import com.theokanning.openai.service.OpenAiService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.env.Environment;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -16,18 +19,21 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 
 @Service
 public class GptService {
 
-    private final OpenAiService openAiService;
+    private OpenAiService _openAiService;
+    private final Logger logger = LoggerFactory.getLogger(this.getClass());
+    
+    @Value("${com.simard.openAiToken}")
+    private String openAiToken;
 
-    @Autowired
-    public GptService(Environment environment) {
-        String token = environment.getProperty("com.simard.openAiToken");
-        assert token != null;
-        this.openAiService = new OpenAiService(token, Duration.ZERO);
+    private OpenAiService openAiService() {
+        if(this._openAiService == null ){
+            this._openAiService = new OpenAiService(this.openAiToken, Duration.ZERO);
+        }
+        return this._openAiService;
     }
 
     public String getCompletion(ChatMessage message, String model) {return this.getCompletion(List.of(message), model);}
@@ -37,20 +43,20 @@ public class GptService {
     }
 
     public String getCompletion(List<ChatMessage> messages, String model) {
+        this.logger.info("Getting completion from OpenAI with model {} and messages list {}", model, messages);
         ChatCompletionRequest req = new ChatCompletionRequest();
         req.setModel(model);
         req.setMessages(messages);
-        return this.openAiService.createChatCompletion(req).getChoices().get(0).getMessage().getContent();
+        ChatCompletionResult result = this.openAiService().createChatCompletion(req);
+        return result.getChoices().get(result.getChoices().toArray().length - 1).getMessage().getContent();
     }
 
     public Map<String, ColorDto> getColorsFromCompletion(String completion) throws InvalidCompletionException {
-        List<String> expectedTitles = new ArrayList<>(List.of(new String[]{"BACKGROUND", "TEXT", "WEAK-ACCENT", "STRONG-ACCENT"}));
-
         completion = completion.replace("\n", "");
 
         Map<String, ColorDto> colorsMap = new HashMap<>();
         String title;
-        String regex = "\\d{1,3},\\d{1,3},\\d{1,3}";
+//        String regex = "\\d{1,3},\\d{1,3},\\d{1,3}";
 
         String[] lines = completion.split(";");
 
@@ -75,6 +81,8 @@ public class GptService {
         messages.add(new ChatMessage(ChatMessageRole.SYSTEM.value(), Prompts.START_PROMPT));
         messages.add(new ChatMessage(ChatMessageRole.USER.value(), Prompts.userGameCreationDescriptionsMessage(playerCharacterDescription, worldDescription)));
 
+        this.logger.info("Built start message list: {}", messages);
+        
         return messages;
     }
 

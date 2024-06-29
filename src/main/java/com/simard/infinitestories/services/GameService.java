@@ -16,6 +16,8 @@ import com.simard.infinitestories.utils.Prompts;
 import com.theokanning.openai.completion.chat.ChatMessage;
 import com.theokanning.openai.completion.chat.ChatMessageRole;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -24,10 +26,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
 
 @Service
 public class GameService {
@@ -42,8 +41,12 @@ public class GameService {
     private final PlayerService playerService;
     private final CharacterService characterService;
 
+    private final Map<Long, List<ChatMessage>> lastMessagesGameIdMap = new HashMap<>();
+
     // Mappers
     private final MemoryMapper memoryMapper;
+
+    private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
     @Autowired
     public GameService(
@@ -76,13 +79,13 @@ public class GameService {
         return null;
     }
 
-    public Map<String, ColorDto> getColorPaletteForWorld() {
+    public Map<String, ColorDto> getColorPaletteForWorld(String gptModel) {
         Map<String, ColorDto> colors;
         List<ChatMessage> messages = new ArrayList<>();
 
         messages.add(new ChatMessage(ChatMessageRole.SYSTEM.value(), Prompts.COLORS_PROMPT));
 
-        String completion = this.gptService.getCompletion(messages);
+        String completion = this.gptService.getCompletion(messages, gptModel);
 
         colors = this.gptService.getColorsFromCompletion(completion);
 
@@ -148,7 +151,7 @@ public class GameService {
 
         newGame = this.gameRepository.save(newGame);
 
-        return ResponseEntity.ok(new GameCreationResponseDto(this.getColorPaletteForWorld(), newGame.getId()));
+        return ResponseEntity.ok(new GameCreationResponseDto(this.getColorPaletteForWorld(newGame.getGptModel()), newGame.getId()));
     }
 
     public ResponseEntity<GamePageDto> startGame(@NotNull Long gameId) {
@@ -161,34 +164,31 @@ public class GameService {
         return this.nextPage(game, this.gptService.getStartMessages(game.getWorld().getDescription(), game.getPlayerCharacter().getDescription()));
     }
 
-    public ResponseEntity<GamePageDto> nextPage(@NotNull Long gameId, NextPageRequestDto nextPageRequestDto) {
-        Game game = this.gameRepository.findById(gameId).orElseThrow(() -> new RequestException("Game not found", HttpStatus.NOT_FOUND));
-
-        List<ChatMessage> messages = this.gptService.getStartMessages(game.getWorld().getDescription(), null);
-        messages.add(new ChatMessage(ChatMessageRole.USER.value(), nextPageRequestDto.message()));
-
-        return this.nextPage(game, messages);
-    }
-
     public ResponseEntity<GamePageDto> nextPage(@NotNull Long gameId, String playerMessage) {
         Game game = this.gameRepository.findById(gameId).orElseThrow();
-        List<ChatMessage> messages = this.memoryMapper.mapMemoryListToChatMessageList(this.memoryService.getMemoriesByGameId(gameId));
-        messages.add(new ChatMessage(ChatMessageRole.USER.value(), playerMessage));
+        ChatMessage userChatMessage = new ChatMessage(ChatMessageRole.USER.value(), playerMessage);
+        List<ChatMessage> messages = new ArrayList<>(
+                this.gptService.getStartMessages(game.getWorld().getDescription(), game.getPlayerCharacter().getDescription())
+        );
+        messages.addAll(this.lastMessagesGameIdMap.get(gameId));
+        messages.add(userChatMessage);
+
+        this.addMessageToMap(gameId, userChatMessage);
+
         return nextPage(game, messages);
     }
 
 
     public ResponseEntity<GamePageDto> nextPage(@NotNull Game game, List<ChatMessage> messages) {
+        messages.addAll(this.memoryMapper.mapMemoryListToChatMessageList(this.memoryService.getMemoriesByGameId(game.getId())));
 
-        messages.addAll(this.memoryService.getMemoriesByGameId(game.getId()).stream().map(memory -> new ChatMessage(ChatMessageRole.ASSISTANT.value(), memory.getDescription())).toList());
-        
         Player player = playerService.getPlayerByGameId(game.getId());
 
         if(player == null) {
             throw new RequestException("Player not found", HttpStatus.NOT_FOUND);
         }
 
-        String completion = this.gptService.getCompletion(messages);
+        String completion = this.gptService.getCompletion(messages, game.getGptModel());
 
         if(completion.contains("MEMORY:") && !completion.endsWith("MEMORY:")) {
             String[] completionSections = completion.split("MEMORY:");
@@ -196,10 +196,22 @@ public class GameService {
             completion = completionSections[0];
             String memorySection = completionSections[1];
 
-            System.out.println("saving memory: " + memorySection);
+            this.logger.info("saving memory: " + memorySection);
             this.memoryService.createAndSaveNewMemory(game, memorySection);
         }
 
+        this.addMessageToMap(game.getId(), new ChatMessage(ChatMessageRole.ASSISTANT.value(), completion));
+
         return ResponseEntity.ok(new GamePageDto(completion));
+    }
+
+    private void addMessageToMap(Long gameId, ChatMessage message) {
+        this.logger.info("Adding to gameId {} message {}", gameId, message);
+        List<ChatMessage> messages = this.lastMessagesGameIdMap.computeIfAbsent(gameId, _key -> new ArrayList<>());
+        if(messages.size() >= 100) {
+            this.logger.info("List of game {} exceded 100 size limit, removing oldest message", gameId);
+            messages.remove(0);
+        }
+        messages.add(message);
     }
 }
