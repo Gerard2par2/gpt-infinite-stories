@@ -30,15 +30,16 @@ import java.util.*;
 
 @Service
 public class GameService {
+    private final static int MAX_SAVED_PAGE_COUNT = 100;
 
     private final GameRepository gameRepository;
+    private final PageRepository pageRepository;
 
     // Services
     private final GptService gptService;
     private final MemoryService memoryService;
     private final WorldService worldService;
     private final UserService userService;
-    private final PlayerService playerService;
     private final CharacterService characterService;
 
     // Mappers
@@ -49,21 +50,20 @@ public class GameService {
     @Autowired
     public GameService(
             GameRepository gameRepository,
+            PageRepository pageRepository,
             GptService gptService,
             MemoryService memoryService,
             WorldService worldService,
             UserService userService,
-            PlayerService playerService,
             CharacterService characterService,
             MemoryMapper memoryMapper)
     {
         this.gameRepository = gameRepository;
-
+        this.pageRepository = pageRepository;
         this.gptService = gptService;
         this.memoryService = memoryService;
         this.worldService = worldService;
         this.userService = userService;
-        this.playerService = playerService;
         this.characterService = characterService;
 
         this.memoryMapper = memoryMapper;
@@ -127,9 +127,7 @@ public class GameService {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
 
-        Player player = this.playerService.createAndSaveNewPlayer(user);
-
-        Game newGame = new Game(world, gameCreationDto.model(), player);
+        Game newGame = new Game(world, gameCreationDto.model(), user);
 
         Character playerCharacter = this.characterService.createAndSaveNewCharacter(
                 gameCreationDto.playerCharacterName(),
@@ -177,10 +175,28 @@ public class GameService {
             completion = this.extractAndSaveMemorySection(completion, game);
         }
 
+        Page page = new Page(playerMessage, completion);
+
         // Create and add the new page to the game
-        game.getPages().add(new Page(playerMessage, completion));
+        game.getPages().add(page);
+
+        // Save the new page
+        this.pageRepository.save(page);
         // Save the updated game
         this.gameRepository.save(game);
+
+        // Limit saved pages count to MAX_SAVED_PAGE_COUNT
+        if(game.getPages().size() > MAX_SAVED_PAGE_COUNT) {
+            this.logger.info("Deleting oldest page");
+            Page deleted = game.getPages().remove(0);
+            this.pageRepository.delete(deleted);
+            for(Page currPage: game.getPages()) {
+                this.logger.info("Current page index: {}", currPage.getPageIndex());
+                if(currPage.getPageIndex() < deleted.getPageIndex()) {
+                    throw new RuntimeException("Did not delete the oldest page");
+                }
+            }
+        }
 
         return ResponseEntity.ok(new GamePageDto(playerMessage, completion));
     }

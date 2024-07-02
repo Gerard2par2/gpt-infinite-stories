@@ -1,6 +1,7 @@
 package com.simard.infinitestories.services;
 
 import com.simard.infinitestories.entities.World;
+import com.simard.infinitestories.enums.WorldEraEnum;
 import com.simard.infinitestories.models.dto.WorldDto;
 import com.simard.infinitestories.repositories.WorldRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,7 +27,7 @@ public class WorldService {
         return this.worldRepository.findById(worldId).orElseThrow();
     }
 
-    public World createAndSaveNewWorld(String name, String description, String era) {
+    public World createAndSaveNewWorld(String name, String description, WorldEraEnum era) {
         return this.worldRepository.save(new World(name, description, era));
     }
 

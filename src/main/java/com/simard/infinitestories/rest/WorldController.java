@@ -1,6 +1,7 @@
 package com.simard.infinitestories.rest;
 
 import com.simard.infinitestories.entities.World;
+import com.simard.infinitestories.enums.WorldEraEnum;
 import com.simard.infinitestories.models.dto.WorldCreationDto;
 import com.simard.infinitestories.models.dto.WorldDto;
 import com.simard.infinitestories.services.WorldService;
@@ -43,7 +44,7 @@ public class WorldController {
     @PostMapping("/new")
     public ResponseEntity<World> createNewWorld(@RequestBody @Validated final WorldCreationDto worldCreationDto) {
         this.logger.info("POST /world/new");
-        return ResponseEntity.ok(this.worldService.createAndSaveNewWorld(worldCreationDto.name(), worldCreationDto.description(), worldCreationDto.era()));
+        return ResponseEntity.ok(this.worldService.createAndSaveNewWorld(worldCreationDto.name(), worldCreationDto.description(), WorldEraEnum.valueOf(worldCreationDto.era().toUpperCase())));
     }
 
     @PutMapping("/{id}")

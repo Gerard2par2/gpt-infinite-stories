@@ -15,6 +15,7 @@ public class Game {
     @GeneratedValue(strategy = GenerationType.SEQUENCE)
     @Column(name = "id", nullable = false)
     private Long id;
+
     @ManyToOne
     @JoinColumn(name = "world_id", nullable = false)
     private World world;
@@ -23,24 +24,25 @@ public class Game {
     private String gptModel;
 
     @ManyToOne
-    @JoinColumn(name = "player_id", nullable = false)
-    private Player player;
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
     @OneToOne
-    @JoinColumn(name = "payer_character")
+    @JoinColumn(name = "player_character")
     private Character playerCharacter;
 
     @OneToMany
     @JoinColumn(name = "game_id")
+    @OrderColumn(name = "page_index")
     private List<Page> pages;
 
-    public Game(World world, String model, Player player) {
+    public Game(World world, String model, User user) {
         this.world = world;
         this.gptModel = model;
-        this.player = player;
+        this.user = user;
     }
 
     public Game() {
-
     }
 }
+

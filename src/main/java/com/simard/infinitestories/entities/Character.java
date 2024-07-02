@@ -3,12 +3,15 @@ package com.simard.infinitestories.entities;
 import com.simard.infinitestories.enums.CharacterTypeEnum;
 import jakarta.persistence.*;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
+
+import java.util.List;
 
 @Entity
 @Getter
 @Setter
-@Table(name = "character_entity")
+@NoArgsConstructor
 public class Character {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE)
@@ -18,16 +21,16 @@ public class Character {
     @Column(name = "name", nullable = false)
     private String name;
 
-    @Column(name = "characterType", nullable = false)
+    @Column(name = "character_type", nullable = false)
     @Enumerated(EnumType.STRING)
     private CharacterTypeEnum characterType;
 
     @Column(name = "description")
     private String description;
 
-    public Character() {
-        super();
-    }
+    @OneToMany
+    @JoinColumn(name = "character_id")
+    private List<CharacterSkillValue> skillValues;
 
     public Character(String name, String description, CharacterTypeEnum characterType) {
         this.name = name;

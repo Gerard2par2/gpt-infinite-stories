@@ -1,5 +1,6 @@
 package com.simard.infinitestories.entities;
 
+import com.simard.infinitestories.enums.WorldEraEnum;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -20,9 +21,10 @@ public class World {
     private String description;
 
     @Column(name="world_era", nullable = false)
-    private String era;
+    @Enumerated(EnumType.STRING)
+    private WorldEraEnum era;
 
-    public World(String name, String description, String era) {
+    public World(String name, String description, WorldEraEnum era) {
         this.name = name;
         this.description = description;
         this.era = era;
