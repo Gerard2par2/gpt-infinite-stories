@@ -4,13 +4,12 @@ import com.simard.infinitestories.entities.*;
 import com.simard.infinitestories.entities.Character;
 import com.simard.infinitestories.enums.ActionResultsEnum;
 import com.simard.infinitestories.enums.CharacterTypeEnum;
-import com.simard.infinitestories.exceptions.RequestException;
+import com.simard.infinitestories.exceptions.MyApiException;
 import com.simard.infinitestories.mappers.MemoryMapper;
 import com.simard.infinitestories.models.dto.ColorDto;
 import com.simard.infinitestories.models.dto.GameCreationDto;
 import com.simard.infinitestories.models.dto.GameCreationResponseDto;
 import com.simard.infinitestories.models.dto.GamePageDto;
-import com.simard.infinitestories.models.dto.*;
 import com.simard.infinitestories.repositories.*;
 import com.simard.infinitestories.utils.Prompts;
 import com.theokanning.openai.completion.chat.ChatMessage;
@@ -144,7 +143,7 @@ public class GameService {
 
     public ResponseEntity<GamePageDto> nextPage(@NotNull Long gameId, String playerMessage) {
         // Get the game
-        Game game = this.gameRepository.findById(gameId).orElseThrow(() -> new RequestException("Game not found", HttpStatus.NOT_FOUND));
+        Game game = this.gameRepository.findById(gameId).orElseThrow(() -> new MyApiException("Game not found", HttpStatus.NOT_FOUND));
         this.logger.info(game.getPages().toString());
         // Init a messages array with the start messages
         List<ChatMessage> messages = new ArrayList<>(
