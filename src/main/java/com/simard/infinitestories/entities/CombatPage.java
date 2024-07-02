@@ -1,22 +1,24 @@
 package com.simard.infinitestories.entities;
 
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.util.*;
 
 @Getter
 @Setter
-public class CombatPage extends Page { // TODO: DELETE ???
+@NoArgsConstructor
+public class CombatPage extends Page {
     private List<Character> enemies;
 
-    public CombatPage(World world, String text) {
-        super(world, text);
+    public CombatPage(String userMessage, String completion) {
+        super(userMessage, completion);
+        this.enemies = new ArrayList<>();
     }
 
-    public CombatPage(World world, String text, List<Character> enemies) {
-        super(world, text);
+    public CombatPage(String userMessage, String completion, List<Character> enemies) {
+        super(userMessage, completion);
         this.enemies = new ArrayList<>(enemies);
     }
-
 }

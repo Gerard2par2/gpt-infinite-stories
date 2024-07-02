@@ -5,6 +5,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.List;
+
 @Entity
 @Setter
 @Getter
@@ -27,6 +29,10 @@ public class Game {
     @OneToOne
     @JoinColumn(name = "payer_character")
     private Character playerCharacter;
+
+    @OneToMany
+    @JoinColumn(name = "game_id")
+    private List<Page> pages;
 
     public Game(World world, String model, Player player) {
         this.world = world;

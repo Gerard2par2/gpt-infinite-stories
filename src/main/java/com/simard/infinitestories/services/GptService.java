@@ -36,8 +36,6 @@ public class GptService {
         return this._openAiService;
     }
 
-    public String getCompletion(ChatMessage message, String model) {return this.getCompletion(List.of(message), model);}
-    public String getCompletion(ChatMessage message) {return this.getCompletion(List.of(message));}
     public String getCompletion(List<ChatMessage> messages) {
         return this.getCompletion(messages, "gpt-3.5-turbo");
     }

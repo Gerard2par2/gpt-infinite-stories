@@ -15,8 +15,4 @@ public class PlayerService {
     public Player createAndSaveNewPlayer(User user) {
         return this.playerRepository.save(new Player(user));
     }
-
-    public Player getPlayerByGameId(Long gameId) {
-        return this.playerRepository.findByGameId(gameId).orElse(null);
-    }
 }

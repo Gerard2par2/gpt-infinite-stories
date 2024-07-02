@@ -33,15 +33,6 @@ public class GameController {
     }
 
     /**
-     * Returns the map of the world
-     * @return an HTTP response containing the map of the world
-     */
-    @GetMapping("/map")
-    public ResponseEntity<String> getGameWorldMap() {
-        return ResponseEntity.ok("Hello World");
-    }
-
-    /**
      * Returns all the games of a world
      * @param worldId the id of the world
      * @return an HTTP response containing all the games of the world
@@ -61,14 +52,9 @@ public class GameController {
         return this.gameService.createNewGame(gameCreationDto);
     }
 
-    /**
-     * Generates the first page of a game
-     * @param gameId the id of the game
-     * @return an HTTP response containing the next page
-     */
     @GetMapping("/{gameId}/start")
-    public ResponseEntity<GamePageDto> startGame(@PathVariable Long gameId) {
-        return this.gameService.startGame(gameId);
+    public ResponseEntity<GamePageDto> startGame(@PathVariable Long gameId){
+        return this.gameService.nextPage(gameId, "");
     }
 
     /**
