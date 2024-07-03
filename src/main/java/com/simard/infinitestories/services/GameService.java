@@ -4,6 +4,8 @@ import com.simard.infinitestories.entities.*;
 import com.simard.infinitestories.entities.Character;
 import com.simard.infinitestories.enums.ActionResultsEnum;
 import com.simard.infinitestories.enums.CharacterTypeEnum;
+import com.simard.infinitestories.enums.PageTypeEnum;
+import com.simard.infinitestories.exceptions.InvalidCompletionException;
 import com.simard.infinitestories.exceptions.MyApiException;
 import com.simard.infinitestories.models.dto.ColorDto;
 import com.simard.infinitestories.models.dto.GameCreationDto;
@@ -17,19 +19,23 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.json.JsonParseException;
+import org.springframework.boot.json.JsonParser;
+import org.springframework.boot.json.JsonParserFactory;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
 
+import java.io.IOException;
 import java.util.*;
 
+/**
+ * Service for the game
+ */
 @Service
 public class GameService {
     private final static int MAX_SAVED_PAGE_COUNT = 100;
 
+    // Repositories
     private final GameRepository gameRepository;
     private final PageRepository pageRepository;
 
@@ -39,7 +45,13 @@ public class GameService {
     private final UserService userService;
     private final CharacterService characterService;
 
+    // Utils
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
+    private final JsonParser jsonParser;
+
+    private final Map<Long, Integer> completionRetryMap = new HashMap<>();
+
+    private final static int MAX_COMPLETION_RETRIES = 3;
 
     @Autowired
     public GameService(
@@ -50,18 +62,29 @@ public class GameService {
             UserService userService,
             CharacterService characterService)
     {
+        // Repositories
         this.gameRepository = gameRepository;
         this.pageRepository = pageRepository;
+
+        // Services
         this.gptService = gptService;
         this.worldService = worldService;
         this.userService = userService;
         this.characterService = characterService;
+
+        // Utils
+        this.jsonParser = JsonParserFactory.getJsonParser();
     }
 
     public List<Game> findAllByWorldId(Long worldId) {
         return this.gameRepository.findAllByWorldId(worldId);
     }
 
+    /**
+     * Get the color palette for a world
+     * @param gptModel The GPT model
+     * @return The color palette
+     */
     public Map<String, ColorDto> getColorPaletteForWorld(String gptModel) {
         Map<String, ColorDto> colors;
         List<ChatMessage> messages = new ArrayList<>();
@@ -75,6 +98,12 @@ public class GameService {
         return colors;
     }
 
+    /**
+     * Roll a die
+     * @param characterSkillLevel The character skill level
+     * @param rollOffset The roll offset
+     * @return The action result
+     */
     public ActionResultsEnum actionRoll (int characterSkillLevel, int rollOffset) {
         Random rd = new Random();
 
@@ -100,8 +129,12 @@ public class GameService {
         }
     }
 
-    @RequestMapping(method = RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<GameCreationResponseDto> createNewGame(GameCreationDto gameCreationDto) {
+    /**
+     * Create a new game
+     * @param gameCreationDto The game creation dto
+     * @return The game creation response dto
+     */
+    public GameCreationResponseDto createNewGame(GameCreationDto gameCreationDto) {
 
         User user = this.userService.findById(gameCreationDto.userId());
 
@@ -113,7 +146,7 @@ public class GameService {
         World world = this.worldService.findById(gameCreationDto.worldId());
 
         if(world == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            throw new MyApiException("World not found", HttpStatus.NOT_FOUND);
         }
 
         Game newGame = new Game(world, gameCreationDto.model(), user);
@@ -128,12 +161,18 @@ public class GameService {
 
         newGame = this.gameRepository.save(newGame);
 
-        return ResponseEntity.ok(new GameCreationResponseDto(this.getColorPaletteForWorld(newGame.getGptModel()), newGame.getId()));
+        return new GameCreationResponseDto(this.getColorPaletteForWorld(newGame.getGptModel()), newGame.getId());
     }
 
-    public ResponseEntity<GamePageDto> nextPage(@NotNull Long gameId, String playerMessage) {
-        // Get the game
+    /**
+     * Get the next page of the game
+     * @param gameId The game id
+     * @param playerMessage The player message
+     * @return The next page
+     */
+    public GamePageDto nextPage(@NotNull Long gameId, String playerMessage) {
         Game game = this.gameRepository.findById(gameId).orElseThrow(() -> new MyApiException("Game not found", HttpStatus.NOT_FOUND));
+
         this.logger.info(game.getPages().toString());
         // Init a messages array with the start messages
         List<ChatMessage> messages = new ArrayList<>(
@@ -153,22 +192,14 @@ public class GameService {
         // Add the new user message
         messages.add(new ChatMessage(ChatMessageRole.USER.value(), playerMessage));
 
-        // Get the completion
-        String completion = this.gptService.getCompletion(messages, game.getGptModel());
-
-        Page page = new Page(playerMessage, completion);
-
-        // Create and add the new page to the game
+        // Create and complete a new page
+        Page page = new Page();
+        this.completePage(game, page, messages, playerMessage);
+        // Update the game with the new page
         game.getPages().add(page);
-
-        // Save the new page
-        this.pageRepository.save(page);
-        // Save the updated game
-        this.gameRepository.save(game);
-
         // Limit saved pages count to MAX_SAVED_PAGE_COUNT
         if(game.getPages().size() > MAX_SAVED_PAGE_COUNT) {
-            this.logger.info("Deleting oldest page");
+            this.logger.info("Deleting oldest page of game {}", game.getId());
             Page deleted = game.getPages().remove(0);
             this.pageRepository.delete(deleted);
             for(Page currPage: game.getPages()) {
@@ -177,8 +208,62 @@ public class GameService {
                     throw new RuntimeException("Did not delete the oldest page");
                 }
             }
+        } else {
+            // Save the new page
+            this.pageRepository.save(page);
+            // Save the updated game
+            this.gameRepository.save(game);
         }
 
-        return ResponseEntity.ok(new GamePageDto(playerMessage, completion));
+        return new GamePageDto(page.getUserMessage(), page.getCompletion(), page.getPageType());
+    }
+
+    /**
+     * Completes the page with the given messages
+     * Will retry the completion if the completion is invalid
+     * @param game The current game
+     * @param page The page to complete, will be mutated
+     * @param messages The previous messages
+     * @param playerMessage The player message
+     */
+    private void completePage(Game game, Page page, List<ChatMessage> messages, String playerMessage) {
+        if(this.completionRetryMap.get(game.getId()) != null) this.logger.debug("LOOK MOM I'M RECURSIVE! (retrying completion)");
+        // Get the completion
+        String completion = this.gptService.getCompletion(messages, game.getGptModel());
+
+        try {
+            // Parse the completion
+            @SuppressWarnings({"unchecked", "rawtypes"}) // Me not likey orange squiggles
+            Map<String, String> parsedCompletion = (Map) this.jsonParser.parseMap(completion);
+            // Set the page type and completion
+            page.setPageType(PageTypeEnum.valueOf(parsedCompletion.get("type")));
+            page.setCompletion(parsedCompletion.get("completion"));
+            page.setUserMessage(playerMessage);
+            logger.info("Parsed completion: {}", page);
+        } catch (Exception e) {
+            this.logger.warn("An error occured when completing page: {}", e.getMessage());
+            if(!(e instanceof IllegalArgumentException)){
+                throw new MyApiException("An error occurred when completing page: ".concat(e.getMessage()), HttpStatus.INTERNAL_SERVER_ERROR);
+            }
+            // Get the retry counter for this game, set to 0 if not already in the map
+            int retryCount = this.completionRetryMap.computeIfAbsent(game.getId(), k -> 0);
+            if(retryCount < MAX_COMPLETION_RETRIES) {
+                this.logger.warn("Invalid completion, retrying {}/3", retryCount + 1);
+                // Increment the retry counter
+                this.completionRetryMap.put(game.getId(), this.completionRetryMap.get(game.getId()) + 1);
+                // Notify the llm that the completion was invalid
+                messages.add(new ChatMessage(ChatMessageRole.SYSTEM.value(), "ERROR: ".concat(e.getMessage()).concat(" Please retry.")));
+                // Remind the last player message
+                messages.add(new ChatMessage(ChatMessageRole.USER.value(), playerMessage));
+                // Retry the completion
+                this.completePage(game, page, messages, playerMessage);
+            } else {
+                // Reset the retry counter
+                this.completionRetryMap.remove(game.getId());
+                throw new InvalidCompletionException("Invalid completion from OpenAI", completion);
+            }
+        }
+        // Reset the retry counter
+        this.completionRetryMap.remove(game.getId());
     }
 }

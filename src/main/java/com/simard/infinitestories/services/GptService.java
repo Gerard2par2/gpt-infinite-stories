@@ -11,6 +11,7 @@ import com.theokanning.openai.completion.chat.ChatMessageRole;
 import com.theokanning.openai.service.OpenAiService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -23,21 +24,12 @@ import java.util.Map;
 @Service
 public class GptService {
 
-    private OpenAiService _openAiService;
+    private final OpenAiService openAiService;
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     
-    @Value("${com.simard.openAiToken}")
-    private String openAiToken;
-
-    private OpenAiService openAiService() {
-        if(this._openAiService == null ){
-            this._openAiService = new OpenAiService(this.openAiToken, Duration.ZERO);
-        }
-        return this._openAiService;
-    }
-
-    public String getCompletion(List<ChatMessage> messages) {
-        return this.getCompletion(messages, "gpt-3.5-turbo");
+    @Autowired
+    public GptService(@Value("${com.simard.openAiToken}") String openAiToken) {
+        this.openAiService = new OpenAiService(openAiToken, Duration.ZERO);
     }
 
     public String getCompletion(List<ChatMessage> messages, String model) {
@@ -45,8 +37,10 @@ public class GptService {
         ChatCompletionRequest req = new ChatCompletionRequest();
         req.setModel(model);
         req.setMessages(messages);
-        ChatCompletionResult result = this.openAiService().createChatCompletion(req);
-        return result.getChoices().get(result.getChoices().toArray().length - 1).getMessage().getContent();
+        ChatCompletionResult result = this.openAiService.createChatCompletion(req);
+        String completion = result.getChoices().get(result.getChoices().toArray().length - 1).getMessage().getContent();
+        this.logger.info("Got completion from OpenAI: {}", completion);
+        return completion;
     }
 
     public Map<String, ColorDto> getColorsFromCompletion(String completion) throws InvalidCompletionException {
