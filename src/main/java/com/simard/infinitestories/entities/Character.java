@@ -12,20 +12,21 @@ import java.util.List;
 @Getter
 @Setter
 @NoArgsConstructor
+@Table(name = "character_entity")
 public class Character {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE)
     @Column(name = "id", nullable = false)
     private Long id;
 
-    @Column(name = "name", nullable = false)
+    @Column(name = "character_name", nullable = false)
     private String name;
 
     @Column(name = "character_type", nullable = false)
     @Enumerated(EnumType.STRING)
     private CharacterTypeEnum characterType;
 
-    @Column(name = "description")
+    @Column(name = "character_description")
     private String description;
 
     @OneToMany
