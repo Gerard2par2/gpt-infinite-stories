@@ -5,7 +5,6 @@ import com.simard.infinitestories.entities.Character;
 import com.simard.infinitestories.enums.ActionResultsEnum;
 import com.simard.infinitestories.enums.CharacterTypeEnum;
 import com.simard.infinitestories.exceptions.MyApiException;
-import com.simard.infinitestories.mappers.MemoryMapper;
 import com.simard.infinitestories.models.dto.ColorDto;
 import com.simard.infinitestories.models.dto.GameCreationDto;
 import com.simard.infinitestories.models.dto.GameCreationResponseDto;
@@ -36,13 +35,9 @@ public class GameService {
 
     // Services
     private final GptService gptService;
-    private final MemoryService memoryService;
     private final WorldService worldService;
     private final UserService userService;
     private final CharacterService characterService;
-
-    // Mappers
-    private final MemoryMapper memoryMapper;
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
@@ -51,21 +46,16 @@ public class GameService {
             GameRepository gameRepository,
             PageRepository pageRepository,
             GptService gptService,
-            MemoryService memoryService,
             WorldService worldService,
             UserService userService,
-            CharacterService characterService,
-            MemoryMapper memoryMapper)
+            CharacterService characterService)
     {
         this.gameRepository = gameRepository;
         this.pageRepository = pageRepository;
         this.gptService = gptService;
-        this.memoryService = memoryService;
         this.worldService = worldService;
         this.userService = userService;
         this.characterService = characterService;
-
-        this.memoryMapper = memoryMapper;
     }
 
     public List<Game> findAllByWorldId(Long worldId) {
@@ -163,16 +153,8 @@ public class GameService {
         // Add the new user message
         messages.add(new ChatMessage(ChatMessageRole.USER.value(), playerMessage));
 
-        // Add the saved memories
-        messages.addAll(this.memoryMapper.mapMemoryListToChatMessageList(this.memoryService.getMemoriesByGameId(game.getId())));
-
         // Get the completion
         String completion = this.gptService.getCompletion(messages, game.getGptModel());
-
-        // Extract memories from the completion
-        if(completion.contains("MEMORY:") && !completion.endsWith("MEMORY:")) {
-            completion = this.extractAndSaveMemorySection(completion, game);
-        }
 
         Page page = new Page(playerMessage, completion);
 
@@ -198,17 +180,5 @@ public class GameService {
         }
 
         return ResponseEntity.ok(new GamePageDto(playerMessage, completion));
-    }
-
-    private String extractAndSaveMemorySection(String completion, Game game) {
-        String[] completionSections = completion.split("MEMORY:");
-
-        completion = completionSections[0];
-        String memorySection = completionSections[1];
-
-        this.logger.info("saving memory: {}", memorySection);
-        this.memoryService.createAndSaveNewMemory(game, memorySection);
-
-        return completion;
     }
 }

@@ -24,7 +24,7 @@ public class Page {
     @Column(name="user_message", nullable = false, length = 1000)
     private String userMessage;
 
-    @Column(name="completion", nullable = false, length = 1000)
+    @Column(name="completion", nullable = false, length = 5000)
     private String completion;
 
     @Column(name = "page_index")
