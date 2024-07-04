@@ -49,12 +49,12 @@ public class GameController {
      */
     @PostMapping("/new")
     public ResponseEntity<GameCreationResponseDto> createNewGame(@RequestBody @Validated GameCreationDto gameCreationDto) {
-        return this.gameService.createNewGame(gameCreationDto);
+        return ResponseEntity.ok(this.gameService.createNewGame(gameCreationDto));
     }
 
     @GetMapping("/{gameId}/start")
     public ResponseEntity<GamePageDto> startGame(@PathVariable Long gameId){
-        return this.gameService.nextPage(gameId, "");
+        return ResponseEntity.ok(this.gameService.nextPage(gameId, ""));
     }
 
     /**
@@ -64,6 +64,6 @@ public class GameController {
      */
     @PostMapping("/{gameId}/next")
     public ResponseEntity<GamePageDto> nextPage(@PathVariable Long gameId, @RequestBody @NotNull @Validated final NextPageRequestDto nextPageRequestDto) {
-        return this.gameService.nextPage(gameId, nextPageRequestDto.message());
+        return ResponseEntity.ok( this.gameService.nextPage(gameId, nextPageRequestDto.message()));
     }
 }
