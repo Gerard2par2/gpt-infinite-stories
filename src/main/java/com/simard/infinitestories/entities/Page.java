@@ -34,9 +34,14 @@ public class Page {
     @Enumerated(EnumType.STRING)
     private PageTypeEnum pageType;
 
-    @OneToMany
-    @JoinColumn(name = "page_id")
+    @ManyToMany
+    @JoinTable(
+            name = "character_page_presence",
+            joinColumns = @JoinColumn(name = "page_id"),
+            inverseJoinColumns = @JoinColumn(name = "character_id")
+    )
     private List<Character> characters;
+
 
     public Page(String userMessage, String completion) {
         this(userMessage, completion, PageTypeEnum.NORMAL, new ArrayList<>());
@@ -47,6 +52,18 @@ public class Page {
         this.completion = completion;
         this.pageType = pageType;
         this.characters = characters;
+    }
+
+    @Override
+    public String toString() {
+        return "Page{" +
+                "id=" + id +
+                ", userMessage='" + userMessage + '\'' +
+                ", completion='" + completion + '\'' +
+                ", pageIndex=" + pageIndex +
+                ", pageType=" + pageType +
+                ", characters=" + characters +
+                '}';
     }
 }
 

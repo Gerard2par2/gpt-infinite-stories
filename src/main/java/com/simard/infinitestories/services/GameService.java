@@ -3,6 +3,7 @@ package com.simard.infinitestories.services;
 import com.simard.infinitestories.entities.*;
 import com.simard.infinitestories.entities.Character;
 import com.simard.infinitestories.enums.ActionResultsEnum;
+import com.simard.infinitestories.enums.CharacterStatusEnum;
 import com.simard.infinitestories.enums.CharacterTypeEnum;
 import com.simard.infinitestories.enums.PageTypeEnum;
 import com.simard.infinitestories.exceptions.InvalidCompletionException;
@@ -19,13 +20,11 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.json.JsonParseException;
 import org.springframework.boot.json.JsonParser;
 import org.springframework.boot.json.JsonParserFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
 import java.util.*;
 
 /**
@@ -51,7 +50,7 @@ public class GameService {
 
     private final Map<Long, Integer> completionRetryMap = new HashMap<>();
 
-    private final static int MAX_COMPLETION_RETRIES = 3;
+    private final static int MAX_COMPLETION_RETRIES = 5;
 
     @Autowired
     public GameService(
@@ -152,9 +151,12 @@ public class GameService {
         Game newGame = new Game(world, gameCreationDto.model(), user);
 
         Character playerCharacter = this.characterService.createAndSaveNewCharacter(
+                "USER_CHARACTER",
                 gameCreationDto.playerCharacterName(),
                 gameCreationDto.playerCharacterDescription(),
-                CharacterTypeEnum.PLAYER
+                CharacterTypeEnum.PLAYER,
+                CharacterStatusEnum.ALIVE,
+                ""
         );
 
         newGame.setPlayerCharacter(playerCharacter);
@@ -172,13 +174,10 @@ public class GameService {
      */
     public GamePageDto nextPage(@NotNull Long gameId, String playerMessage) {
         Game game = this.gameRepository.findById(gameId).orElseThrow(() -> new MyApiException("Game not found", HttpStatus.NOT_FOUND));
-
-        this.logger.info(game.getPages().toString());
         // Init a messages array with the start messages
         List<ChatMessage> messages = new ArrayList<>(
                 this.gptService.getStartMessages(game.getWorld().getDescription(), game.getPlayerCharacter().getDescription())
         );
-
         // Add messages for each previous page
         ChatMessage previousUserMessage;
         ChatMessage previousCompletionMessage;
@@ -188,13 +187,18 @@ public class GameService {
             messages.add(previousUserMessage);
             messages.add(previousCompletionMessage);
         }
-
         // Add the new user message
         messages.add(new ChatMessage(ChatMessageRole.USER.value(), playerMessage));
-
+        // Add the characters message
+        List<Character> characters = this.characterService.findAllByGameId(game.getId());
+        if(!characters.isEmpty()) {
+            messages.add(this.buildCharactersMessage(characters));
+        }
         // Create and complete a new page
         Page page = new Page();
         this.completePage(game, page, messages, playerMessage);
+        // Save the characters
+        page.setCharacters(page.getCharacters().stream().map(this.characterService::saveOrUpdateCharacterIfNeeded).toList());
         // Update the game with the new page
         game.getPages().add(page);
         // Limit saved pages count to MAX_SAVED_PAGE_COUNT
@@ -215,7 +219,7 @@ public class GameService {
             this.gameRepository.save(game);
         }
 
-        return new GamePageDto(page.getUserMessage(), page.getCompletion(), page.getPageType());
+        return new GamePageDto(page.getUserMessage(), page.getCompletion(), page.getPageType(), page.getCharacters());
     }
 
     /**
@@ -230,29 +234,37 @@ public class GameService {
         if(this.completionRetryMap.get(game.getId()) != null) this.logger.debug("LOOK MOM I'M RECURSIVE! (retrying completion)");
         // Get the completion
         String completion = this.gptService.getCompletion(messages, game.getGptModel());
-
         try {
             // Parse the completion
-            @SuppressWarnings({"unchecked", "rawtypes"}) // Me not likey orange squiggles
-            Map<String, String> parsedCompletion = (Map) this.jsonParser.parseMap(completion);
-            // Set the page type and completion
-            page.setPageType(PageTypeEnum.valueOf(parsedCompletion.get("type")));
-            page.setCompletion(parsedCompletion.get("completion"));
+            Map<String, Object> parsedCompletion = this.jsonParser.parseMap(completion);
+            // Build the page
+            page.setPageType(PageTypeEnum.valueOf((String) parsedCompletion.get("type")));
+            page.setCompletion((String) parsedCompletion.get("completion"));
             page.setUserMessage(playerMessage);
+            page.setCharacters(
+                    ((List<LinkedHashMap<String, Object>>) parsedCompletion.get("characters")).stream().map( // Eww orange squiggles >_<
+                            characterFieldsMap -> new Character(
+                                    characterFieldsMap.get("id").toString(),
+                                    characterFieldsMap.get("name").toString(),
+                                    characterFieldsMap.get("description").toString(),
+                                    CharacterTypeEnum.valueOf(characterFieldsMap.get("type").toString().toUpperCase()),
+                                    CharacterStatusEnum.valueOf(characterFieldsMap.get("status").toString().toUpperCase()),
+                                    characterFieldsMap.get("image_prompt").toString()
+                            )
+                    ).toList()
+            );
             logger.info("Parsed completion: {}", page);
-        } catch (Exception e) {
-            this.logger.warn("An error occured when completing page: {}", e.getMessage());
-            if(!(e instanceof IllegalArgumentException)){
-                throw new MyApiException("An error occurred when completing page: ".concat(e.getMessage()), HttpStatus.INTERNAL_SERVER_ERROR);
-            }
+        } catch (IllegalArgumentException | ClassCastException e ) {
+            this.logger.warn("IllegalArgumentException when completing page: {}", e.getMessage());
+            e.printStackTrace();
             // Get the retry counter for this game, set to 0 if not already in the map
             int retryCount = this.completionRetryMap.computeIfAbsent(game.getId(), k -> 0);
             if(retryCount < MAX_COMPLETION_RETRIES) {
-                this.logger.warn("Invalid completion, retrying {}/3", retryCount + 1);
+                this.logger.warn("Invalid completion, retrying {}/{}", retryCount + 1, MAX_COMPLETION_RETRIES);
                 // Increment the retry counter
                 this.completionRetryMap.put(game.getId(), this.completionRetryMap.get(game.getId()) + 1);
                 // Notify the llm that the completion was invalid
-                messages.add(new ChatMessage(ChatMessageRole.SYSTEM.value(), "ERROR: ".concat(e.getMessage()).concat(" Please retry.")));
+                messages.add(new ChatMessage(ChatMessageRole.SYSTEM.value(), "ERROR: ".concat(e.getMessage()).concat("Your last completion was: ").concat(completion).concat(" Please retry.")));
                 // Remind the last player message
                 messages.add(new ChatMessage(ChatMessageRole.USER.value(), playerMessage));
                 // Retry the completion
@@ -262,8 +274,20 @@ public class GameService {
                 this.completionRetryMap.remove(game.getId());
                 throw new InvalidCompletionException("Invalid completion from OpenAI", completion);
             }
+        } catch (Exception e) {
+            this.logger.error("An error occurred when completing page: {}", e.getMessage());
+            e.printStackTrace();
+            throw new MyApiException("An error occurred when completing page: ".concat(e.getMessage()), HttpStatus.INTERNAL_SERVER_ERROR);
         }
         // Reset the retry counter
         this.completionRetryMap.remove(game.getId());
+    }
+
+    private ChatMessage buildCharactersMessage(List<Character> characters) {
+        String message = "CHARACTERS:\n";
+        for(Character character: characters) {
+            message = message.concat(character.toString()).concat(",\n");
+        }
+        return new ChatMessage(ChatMessageRole.SYSTEM.value(), message);
     }
 }
